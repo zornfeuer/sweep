@@ -44,13 +44,16 @@ impl App {
                     match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
                         KeyCode::Down => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
+                        KeyCode::Char('j') => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
                         KeyCode::Up => self.cursor = self.cursor.saturating_sub(1),
+                        KeyCode::Char('k') => self.cursor = self.cursor.saturating_sub(1),
                         KeyCode::Char(' ') => {
                             if !self.items.is_empty() {
                                 self.selected[self.cursor] = !self.selected[self.cursor];
                             }
                         },
                         KeyCode::Enter => {
+                            terminal.clear()?;
                             self.confirm_and_remove()?;
                             self.should_quit = true;
                         },
@@ -123,18 +126,21 @@ impl App {
             for item in &selected_items {
                 println!("  - {}", item)
             }
-            println!("\nType 'yes' to confirm, anything else to cancel: ");
+            println!("\nPress 'y' to confirm, anything else to cancel: ");
 
-            disable_raw_mode()?;
-            stdout().execute(LeaveAlternateScreen)?;
-            
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
+            let confirmed: bool;
 
-            let confirmed = input.trim().eq_ignore_ascii_case("yes");
-
-            enable_raw_mode()?;
-            stdout().execute(EnterAlternateScreen)?;
+            loop {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Press {
+                        confirmed = match key.code {
+                            KeyCode::Char('y') => true,
+                            _ => false,
+                        };
+                        break;
+                    }
+                }
+            }
 
             if !confirmed {
                 println!("\n❌ Canceled.");

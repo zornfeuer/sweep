@@ -5,7 +5,7 @@ mod home_scanner;
 mod tui;
 
 use clap::Parser;
-use types::{Package, PackageSystem, SweepItem};
+use types::SweepItem;
 
 #[derive(Parser)]
 struct Cli {
