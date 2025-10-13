@@ -53,7 +53,7 @@ impl App {
                             }
                         },
                         KeyCode::Enter => {
-                            terminal.clear()?;
+                            restore_terminal()?;
                             self.confirm_and_remove()?;
                             self.should_quit = true;
                         },
@@ -126,7 +126,7 @@ impl App {
             for item in &selected_items {
                 println!("  - {}", item)
             }
-            println!("\nPress 'y' to confirm, anything else to cancel: ");
+            println!("\nConfirm? [y/N]: ");
 
             let confirmed: bool;
 
