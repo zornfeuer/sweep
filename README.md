@@ -102,9 +102,28 @@ Should work on any Debian/Ubuntu derivative and Void.
 
 ## 📦 Roadmap
 
-- [ ] Support for Arch Linux (`pacman -Qdt`)
-- [ ] Export cleanup report to `~/.local/state/sweep/`
-- [ ] Color themes and UI improvements
+### 🔒 **Core Reliability & Safety**
+- [ ] **Guaranteed terminal recovery** — prevent broken terminals on crash or `Ctrl+C`  
+- [ ] **Graceful error handling during deletion** — continue cleaning even if one item fails, report errors at the end  
+- [ ] **Explicit opt-in for home directory scanning** — disable by default, require `--scan-home` to avoid accidental data loss  
+
+### 🎨 **User Experience & Customization**
+- [ ] **Configurable keybindings** — remap navigation, selection, and confirmation keys  
+- [ ] **Color themes & visual polish** — distinguish packages vs. home artifacts with icons/colors, add status footer  
+- [ ] **Select all / Deselect all** — quick bulk operations with `a` / `A`  
+
+### ⚙️ **Advanced Configuration**
+- [ ] **User config file (`~/.config/sweep/config.toml`)** — override auto-detected OS, set default flags, customize UI  
+- [ ] **Manual OS override** — force Void/Debian mode regardless of detection (useful in containers or mixed environments)  
+
+### 🧩 **New Platforms & Features**
+- [ ] **Arch Linux support** — detect and clean orphaned packages via `pacman -Qdt`  
+- [ ] **Flatpak/Snap leftovers** — optional cleanup of sandboxed app traces  
+- [ ] **Cleanup report export** — save what was removed to `~/.local/state/sweep/` for auditing  
+
+### 🧪 **Smarter Home Cleanup**
+- [ ] **Safer artifact matching** — use allowlists or heuristic checks instead of raw name matching  
+- [ ] **Deep scan mode (opt-in)** — recursively search home directories for orphaned files (with clear warning)  
 
 ---
 
