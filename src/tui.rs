@@ -43,10 +43,8 @@ impl App {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
-                        KeyCode::Down => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
-                        KeyCode::Char('j') => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
-                        KeyCode::Up => self.cursor = self.cursor.saturating_sub(1),
-                        KeyCode::Char('k') => self.cursor = self.cursor.saturating_sub(1),
+                        KeyCode::Down | KeyCode::Char('j') => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
+                        KeyCode::Up | KeyCode::Char('k') => self.cursor = self.cursor.saturating_sub(1),
                         KeyCode::Char(' ') => {
                             if !self.items.is_empty() {
                                 self.selected[self.cursor] = !self.selected[self.cursor];
@@ -128,19 +126,17 @@ impl App {
             }
             println!("\nConfirm? [y/N]: ");
 
-            let confirmed: bool;
-
-            loop {
+            let confirmed = loop {
                 if let Event::Key(key) = event::read()? {
                     if key.kind == KeyEventKind::Press {
-                        confirmed = match key.code {
-                            KeyCode::Char('y') => true,
-                            _ => false,
-                        };
-                        break;
+                        match key.code {
+                            KeyCode::Char('y') | KeyCode::Char('Y') => break true,
+                            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc | KeyCode::Char('q') => break false,
+                            _ => continue,
+                        }
                     }
                 }
-            }
+            };
 
             if !confirmed {
                 println!("\n❌ Canceled.");
