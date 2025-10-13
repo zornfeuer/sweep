@@ -3,7 +3,7 @@ use std::process::Command;
 
 pub fn list_orphans() -> anyhow::Result<Vec<Package>> {
     let output = Command::new("xbps-query")
-        .args(["-o"])
+        .args(["-O"])
         .output()?;
 
     if !output.status.success() {
