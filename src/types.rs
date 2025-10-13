@@ -1,3 +1,5 @@
+use std::process::Command;
+
 #[derive(Debug, Clone)]
 pub enum SweepItem {
     Package(Package),
@@ -24,6 +26,54 @@ pub struct HomeArtifact {
     pub path: std::path::PathBuf,
     pub associated_package: Option<String>,
     pub reason: String,
+}
+
+impl Package {
+    pub fn remove(&self, dry_run: bool) -> anyhow::Result<()> {
+        match self.system {
+            PackageSystem::Xbps => {
+                if dry_run {
+                    println!("  [DRY] xbps-remove -Ry {}", self.name)
+                } else {
+                    let status = Command::new("xbps-remove")
+                        .args(["-Ry", &self.name])
+                        .status()?;
+                    if !status.success() {
+                        anyhow::bail!("Failed to remove package: {}", self.name);
+                    }
+                }
+            },
+            PackageSystem::Dpkg => {
+                if dry_run {
+                    println!("  [DRY] apt purge -y {}", self.name);
+                } else {
+                    let status = Command::new("doas")
+                        .args(["apt", "purge", "-y", &self.name])
+                        .status()?;
+
+                    if !status.success() {
+                        anyhow::bail!("Failed to purge package: {}", self.name);
+                    }
+                }
+            },
+        }
+
+        Ok(())
+    }
+}
+
+impl HomeArtifact {
+    pub fn remove(&self, dry_run: bool) -> anyhow::Result<()> {
+        if dry_run {
+            println!("  [DRY] rm -rf {}", self.path.display());
+        } else {
+            if self.path.exists() {
+                std::fs::remove_dir_all(&self.path)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl std::fmt::Display for SweepItem {

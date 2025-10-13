@@ -27,18 +27,21 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let mut sweep_items = Vec::new();
+    let mut package_names = Vec::new();
 
     if is_void() {
         eprintln!("Detected: Void Linux");
-        if cli.orphans || !cli.residual {
+        if cli.orphans || (!cli.orphans && !cli.residual) {
             for pkg in xbps::list_orphans()? {
+                package_names.push(pkg.name.clone());
                 sweep_items.push(SweepItem::Package(pkg));
             }
         }
     } else if is_debian() {
         eprintln!("Detected: Debian");
-        if cli.residual || !cli.orphans {
+        if cli.residual || (!cli.orphans && !cli.residual) {
             for pkg in dpkg::list_residual_configs()? {
+                package_names.push(pkg.name.clone());
                 sweep_items.push(SweepItem::Package(pkg));
             }
         }
@@ -46,10 +49,10 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("Unsupported system");
     }
 
-    // TODO: home artifacts
-    // let removed_names: Vec<String> = ...;
-    // let home_artifacts = home_scanner::find_suspicious_artifacts(&removed_names);
-    // for art in home_artifacts { ... }
+    let home_artifacts = home_scanner::find_suspicious_artifacts(&package_names);
+    for artifact in home_artifacts {
+        sweep_items.push(SweepItem::HomeArtifact(artifact));
+    }
 
     if sweep_items.is_empty() {
         println!("✅ Nothing to clean!");

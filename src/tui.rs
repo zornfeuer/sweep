@@ -86,7 +86,12 @@ impl App {
             .map(|(i, item)| {
                 let prefix = if self.selected[i] { "✓ " } else { "  " };
                 let line = Line::from(format!("{}{}", prefix, item));
-                ListItem::new(line).style(if i == self.cursor { Style::new().bg(palette.c900) } else { Style::new() })
+                let style = if i == self.cursor {
+                    Style::new().bg(palette.c200).fg(Color::Black)
+                } else {
+                    Style::new() 
+                };
+                ListItem::new(line).style(style)
             })
             .collect();
 
@@ -95,16 +100,61 @@ impl App {
     }
 
     fn confirm_and_remove(&self) -> Result<()> {
+        let selected_items: Vec<_> = self
+            .items
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| self.selected[*i])
+            .map(|(_, item)| item)
+            .collect();
+
+        if selected_items.is_empty() {
+            println!("\nℹ️  Nothing selected.");
+            return Ok(());
+        }
+
         if self.dry_run {
             println!("\n✅ DRY RUN: would remove:");
-            for (i, item) in self.items.iter().enumerate() {
-                if self.selected[i] {
-                    println!("  - {}", item)
-                }
+            for item in &selected_items {
+                println!("  - {}", item);
             }
         } else {
-            // TODO: Удаление
-            println!("\n⚠️  Real removal not implemented yet.");
+            println!("\n⚠️  PERMANENTLY REMOVE THE FOLLOWING ITEMS?");
+            for item in &selected_items {
+                println!("  - {}", item)
+            }
+            println!("\nType 'yes' to confirm, anything else to cancel: ");
+
+            disable_raw_mode()?;
+            stdout().execute(LeaveAlternateScreen)?;
+            
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+
+            let confirmed = input.trim().eq_ignore_ascii_case("yes");
+
+            enable_raw_mode()?;
+            stdout().execute(EnterAlternateScreen)?;
+
+            if !confirmed {
+                println!("\n❌ Canceled.");
+                return Ok(());
+            }
+
+            println!("\n🧹 Removing...");
+            for item in &selected_items {
+                match item {
+                    SweepItem::Package(pkg) => {
+                        println!("📦 Removing package: {}", pkg.name);
+                        pkg.remove(false)?;
+                    }
+                    SweepItem::HomeArtifact(art) => {
+                        println!("🏠 Removing: {}", art.path.display());
+                        art.remove(false)?;
+                    }
+                }
+            }
+            println!("\n✅ Done!")
         }
         Ok(())
     }
