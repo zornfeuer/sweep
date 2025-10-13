@@ -5,7 +5,6 @@ mod home_scanner;
 mod tui;
 
 use clap::Parser;
-use std::collections::HashSet;
 use types::{Package, PackageSystem, SweepItem};
 
 #[derive(Parser)]
@@ -18,9 +17,9 @@ struct Cli {
     #[arg(long)]
     residual: bool,
 
-    /// Dry run (default)
-    #[arg(long, default_value_t = true)]
-    dry_run: bool,
+    /// Perform real deletion (requires confirmation).
+    #[arg(long)]
+    delete: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -59,7 +58,7 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut app = tui::App::new(sweep_items, cli.dry_run);
+    let mut app = tui::App::new(sweep_items, !cli.delete);
     app.run()?;
     
     Ok(())
