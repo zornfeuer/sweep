@@ -3,9 +3,11 @@ mod xbps;
 mod dpkg;
 mod home_scanner;
 mod tui;
+mod config;
 
 use clap::Parser;
-use types::SweepItem;
+use types::{SweepItem, OS};
+use config::Config;
 
 #[derive(Parser)]
 struct Cli {
@@ -24,28 +26,34 @@ struct Cli {
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    let config = Config::load_config()?;
 
     let mut sweep_items = Vec::new();
     let mut package_names = Vec::new();
 
-    if is_void() {
-        eprintln!("Detected: Void Linux");
-        if cli.orphans || (!cli.orphans && !cli.residual) {
-            for pkg in xbps::list_orphans()? {
-                package_names.push(pkg.name.clone());
-                sweep_items.push(SweepItem::Package(pkg));
+    let current_os = match config.os {
+        Some(ref os) => os,
+        None => &detect_os(),
+    };
+
+    match current_os {
+        OS::Void => {
+            if cli.orphans || (!cli.orphans && !cli.residual) {
+                for pkg in xbps::list_orphans()? {
+                    package_names.push(pkg.name.clone());
+                    sweep_items.push(SweepItem::Package(pkg));
+                }
             }
-        }
-    } else if is_debian() {
-        eprintln!("Detected: Debian");
-        if cli.residual || (!cli.orphans && !cli.residual) {
-            for pkg in dpkg::list_residual_configs()? {
-                package_names.push(pkg.name.clone());
-                sweep_items.push(SweepItem::Package(pkg));
+        },
+        OS::Debian => {
+            if cli.residual || (!cli.orphans && !cli.residual) {
+                for pkg in dpkg::list_residual_configs()? {
+                    package_names.push(pkg.name.clone());
+                    sweep_items.push(SweepItem::Package(pkg));
+                }
             }
-        }
-    } else {
-        anyhow::bail!("Unsupported system");
+        },
+        OS::Unsupported => anyhow::bail!("Unsupported system"),
     }
 
     let home_artifacts = home_scanner::find_suspicious_artifacts(&package_names);
@@ -59,15 +67,13 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut app = tui::App::new(sweep_items, !cli.delete);
-    app.run()?;
+    app.run(config)?;
     
     Ok(())
 }
 
-fn is_void() -> bool {
-    std::path::Path::new("/usr/bin/xbps-query").exists()
-}
-
-fn is_debian() -> bool {
-    std::path::Path::new("/usr/bin/dpkg").exists()
+fn detect_os() -> OS {
+    if std::path::Path::new("/usr/bin/xbps-query").exists() { return OS::Void; }
+    if std::path::Path::new("/usr/bin/dpkg").exists() { return OS::Debian; }
+    OS::Unsupported
 }

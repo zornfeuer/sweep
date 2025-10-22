@@ -1,4 +1,12 @@
 use std::process::Command;
+use serde::{Deserialize, Deserializer};
+
+#[derive(Debug, Clone)]
+pub enum OS {
+    Void,
+    Debian,
+    Unsupported,
+}
 
 #[derive(Debug, Clone)]
 pub enum SweepItem {
@@ -26,6 +34,20 @@ pub struct HomeArtifact {
     pub path: std::path::PathBuf,
     pub associated_package: Option<String>,
     pub reason: String,
+}
+
+impl<'de> Deserialize<'de> for OS {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        match s.to_lowercase().as_str() {
+            "void" => Ok(OS::Void),
+            "debian" => Ok(OS::Debian),
+            _ => Ok(OS::Unsupported),
+        }
+    }
 }
 
 impl Package {

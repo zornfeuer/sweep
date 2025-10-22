@@ -1,4 +1,5 @@
 use crate::types::SweepItem;
+use crate::config::{Config, Theme, Keybindings};
 use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
@@ -43,7 +44,8 @@ impl App {
         }
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self, config: Config) -> Result<()> {
+        let keybindings = &config.keybindings;
         let guard = TerminalGuard::enter()?;
         let backend = CrosstermBackend::new(stdout());
         let mut terminal = Terminal::new(backend)?;
@@ -55,16 +57,20 @@ impl App {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => break false,
                         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break false,
-                        KeyCode::Down | KeyCode::Char('j') => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
-                        KeyCode::Up | KeyCode::Char('k') => self.cursor = self.cursor.saturating_sub(1),
-                        KeyCode::Char(' ') => {
+                        c if keybindings.quit.contains(&c) => break false,
+                        c if keybindings.select.contains(&c) => {
                             if !self.items.is_empty() {
                                 self.selected[self.cursor] = !self.selected[self.cursor];
                             }
                         },
-                        KeyCode::Enter => break true,
+                        c if keybindings.confirm.contains(&c) => break true,
+                        c if keybindings.cursor_up.contains(&c) => self.cursor = self.cursor.saturating_sub(1),
+                        c if keybindings.cursor_down.contains(&c) => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
+                        c if keybindings.select_all.contains(&c) => {
+                            let is_all = self.selected.iter().all(|&x| x == true);
+                            self.selected.fill(!is_all);
+                        },
                         _ => {},
                     }
                 }
