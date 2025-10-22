@@ -66,8 +66,8 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut app = tui::App::new(sweep_items, !cli.delete);
-    app.run(config)?;
+    let mut app = tui::App::new(sweep_items, !cli.delete, config);
+    app.run()?;
     
     Ok(())
 }

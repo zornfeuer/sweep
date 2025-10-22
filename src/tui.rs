@@ -1,15 +1,27 @@
 use crate::types::SweepItem;
-use crate::config::{Config, Theme, Keybindings};
+use crate::config::Config;
 use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
-use ratatui::{prelude::*, style::palette::tailwind, widgets::*};
-use std::io::{stdout, Stdout};
+use ratatui::{
+    prelude::*,
+    style::Color,
+    widgets::*
+};
+use std::io::stdout;
 
 struct TerminalGuard;
+
+pub struct App {
+    items: Vec<SweepItem>,
+    selected: Vec<bool>,
+    cursor: usize,
+    dry_run: bool,
+    config: Config,
+}
 
 impl TerminalGuard {
     fn enter() -> anyhow::Result<Self> {
@@ -26,26 +38,19 @@ impl Drop for TerminalGuard {
     }
 }
 
-pub struct App {
-    items: Vec<SweepItem>,
-    selected: Vec<bool>,
-    cursor: usize,
-    dry_run: bool,
-}
-
 impl App {
-    pub fn new(items: Vec<SweepItem>, dry_run: bool) -> Self {
+    pub fn new(items: Vec<SweepItem>, dry_run: bool, config: Config) -> Self {
         let selected = vec![false; items.len()];
         Self {
             items,
             selected,
             cursor: 0,
             dry_run,
+            config,
         }
     }
 
-    pub fn run(&mut self, config: Config) -> Result<()> {
-        let keybindings = &config.keybindings;
+    pub fn run(&mut self) -> Result<()> {
         let guard = TerminalGuard::enter()?;
         let backend = CrosstermBackend::new(stdout());
         let mut terminal = Terminal::new(backend)?;
@@ -58,16 +63,16 @@ impl App {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break false,
-                        c if keybindings.quit.contains(&c) => break false,
-                        c if keybindings.select.contains(&c) => {
+                        c if self.config.keybindings.quit.contains(&c) => break false,
+                        c if self.config.keybindings.select.contains(&c) => {
                             if !self.items.is_empty() {
                                 self.selected[self.cursor] = !self.selected[self.cursor];
                             }
                         },
-                        c if keybindings.confirm.contains(&c) => break true,
-                        c if keybindings.cursor_up.contains(&c) => self.cursor = self.cursor.saturating_sub(1),
-                        c if keybindings.cursor_down.contains(&c) => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
-                        c if keybindings.select_all.contains(&c) => {
+                        c if self.config.keybindings.confirm.contains(&c) => break true,
+                        c if self.config.keybindings.cursor_up.contains(&c) => self.cursor = self.cursor.saturating_sub(1),
+                        c if self.config.keybindings.cursor_down.contains(&c) => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
+                        c if self.config.keybindings.select_all.contains(&c) => {
                             let is_all = self.selected.iter().all(|&x| x == true);
                             self.selected.fill(!is_all);
                         },
@@ -87,7 +92,6 @@ impl App {
 
     fn render(&mut self, frame: &mut Frame) {
         let area = frame.area();
-        let palette = tailwind::BLUE;
 
         let title = if self.dry_run {
             "🧹 sweep (DRY RUN — nothing will be deleted)"
@@ -98,7 +102,7 @@ impl App {
         let block = Block::bordered()
             .title(title)
             .title_alignment(Alignment::Center)
-            .border_style(Style::new().fg(palette.c400));
+            .border_style(Style::new().fg(self.config.theme.selected_bg.0));
 
         let items: Vec<ListItem> = self
             .items
@@ -106,9 +110,16 @@ impl App {
             .enumerate()
             .map(|(i, item)| {
                 let prefix = if self.selected[i] { "✓ " } else { "  " };
-                let line = Line::from(format!("{}{}", prefix, item));
+                let icon = match item {
+                    SweepItem::Package(_) => &self.config.theme.package_icon,
+                    SweepItem::HomeArtifact(_) => &self.config.theme.artifact_icon,
+                };
+
+                let line = Line::from(format!("{}{} {}", prefix, icon, item));
                 let style = if i == self.cursor {
-                    Style::new().bg(palette.c200).fg(Color::Black)
+                    Style::new()
+                        .bg(self.config.theme.selected_bg.0)
+                        .fg(Color::Black)
                 } else {
                     Style::new() 
                 };
