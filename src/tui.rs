@@ -1,18 +1,34 @@
 use crate::types::SweepItem;
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
 use ratatui::{prelude::*, style::palette::tailwind, widgets::*};
 use std::io::{stdout, Stdout};
 
+struct TerminalGuard;
+
+impl TerminalGuard {
+    fn enter() -> anyhow::Result<Self> {
+        enable_raw_mode()?;
+        stdout().execute(EnterAlternateScreen)?;
+        Ok(Self)
+    }
+}
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let _ = stdout().execute(LeaveAlternateScreen);
+    }
+}
+
 pub struct App {
     items: Vec<SweepItem>,
     selected: Vec<bool>,
     cursor: usize,
-    should_quit: bool,
     dry_run: bool,
 }
 
@@ -23,26 +39,24 @@ impl App {
             items,
             selected,
             cursor: 0,
-            should_quit: false,
             dry_run,
         }
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let mut terminal = init_terminal()?;
+        let guard = TerminalGuard::enter()?;
+        let backend = CrosstermBackend::new(stdout());
+        let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
 
-        loop {
+        let result = loop {
             terminal.draw(|frame| self.render(frame))?;
-
-            if self.should_quit {
-                break;
-            }
 
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
+                        KeyCode::Char('q') | KeyCode::Esc => break false,
+                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break false,
                         KeyCode::Down | KeyCode::Char('j') => self.cursor = (self.cursor + 1).min(self.items.len().saturating_sub(1)),
                         KeyCode::Up | KeyCode::Char('k') => self.cursor = self.cursor.saturating_sub(1),
                         KeyCode::Char(' ') => {
@@ -50,18 +64,18 @@ impl App {
                                 self.selected[self.cursor] = !self.selected[self.cursor];
                             }
                         },
-                        KeyCode::Enter => {
-                            restore_terminal()?;
-                            self.confirm_and_remove()?;
-                            self.should_quit = true;
-                        },
+                        KeyCode::Enter => break true,
                         _ => {},
                     }
                 }
             }
+        };
+
+        if result {
+            drop(guard);
+            self.confirm_and_remove()?;
         }
 
-        restore_terminal()?;
         Ok(())
     }
 
@@ -160,18 +174,4 @@ impl App {
         }
         Ok(())
     }
-}
-
-fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
-    enable_raw_mode()?;
-    stdout().execute(EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout());
-    let terminal = Terminal::new(backend)?;
-    Ok(terminal)
-}
-
-fn restore_terminal() -> Result<()> {
-    disable_raw_mode()?;
-    stdout().execute(LeaveAlternateScreen)?;
-    Ok(())
 }

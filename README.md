@@ -103,7 +103,7 @@ Should work on any Debian/Ubuntu derivative and Void.
 ## 📦 Roadmap
 
 ### 🔒 **Core Reliability & Safety**
-- [ ] **Guaranteed terminal recovery** — prevent broken terminals on crash or `Ctrl+C`  
+- [ x ] **Guaranteed terminal recovery** — prevent broken terminals on crash or `Ctrl+C`  
 - [ ] **Graceful error handling during deletion** — continue cleaning even if one item fails, report errors at the end  
 - [ ] **Explicit opt-in for home directory scanning** — disable by default, require `--scan-home` to avoid accidental data loss  
 
