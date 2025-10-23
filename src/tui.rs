@@ -19,6 +19,7 @@ pub struct App {
     items: Vec<SweepItem>,
     selected: Vec<bool>,
     cursor: usize,
+    viewport_start: usize,
     dry_run: bool,
     config: Config,
 }
@@ -45,6 +46,7 @@ impl App {
             items,
             selected,
             cursor: 0,
+            viewport_start: 0,
             dry_run,
             config,
         }
@@ -90,8 +92,27 @@ impl App {
         Ok(())
     }
 
+    fn adjust_viewport(&mut self, visible_height: usize) {
+        if visible_height == 0 {
+            return;
+        }
+
+        if self.cursor < self.viewport_start {
+            self.viewport_start = self.cursor;
+        } else if self.cursor >= self.viewport_start + visible_height {
+            self.viewport_start = self.cursor - visible_height + 1;
+        }
+
+        if self.viewport_start > self.items.len().saturating_sub(1) {
+            self.viewport_start = self.items.len().saturating_sub(1)
+        }
+    }
+
     fn render(&mut self, frame: &mut Frame) {
         let area = frame.area();
+        let visible_height = area.height.saturating_sub(2) as usize;
+
+        self.adjust_viewport(visible_height);
 
         let title = if self.dry_run {
             "🧹 sweep (DRY RUN — nothing will be deleted)"
@@ -104,18 +125,16 @@ impl App {
             .title_alignment(Alignment::Center)
             .border_style(Style::new().fg(self.config.theme.selected_bg.0));
 
-        let items: Vec<ListItem> = self
-            .items
-            .iter()
-            .enumerate()
-            .map(|(i, item)| {
+        let end = (self.viewport_start + visible_height).min(self.items.len());
+        let visible_items: Vec<ListItem> = (self.viewport_start..end)
+            .map(|i| {
                 let prefix = if self.selected[i] { "✓ " } else { "  " };
-                let icon = match item {
+                let icon = match &self.items[i] {
                     SweepItem::Package(_) => &self.config.theme.package_icon,
                     SweepItem::HomeArtifact(_) => &self.config.theme.artifact_icon,
                 };
 
-                let line = Line::from(format!("{}{} {}", prefix, icon, item));
+                let line = Line::from(format!("{}{} {}", prefix, icon, self.items[i]));
                 let style = if i == self.cursor {
                     Style::new()
                         .bg(self.config.theme.selected_bg.0)
@@ -127,7 +146,7 @@ impl App {
             })
             .collect();
 
-        let list = List::new(items).block(block).highlight_symbol(">> ");
+        let list = List::new(visible_items).block(block).highlight_symbol(">> ");
         frame.render_widget(list, area);
     }
 
@@ -179,7 +198,7 @@ impl App {
                 match item {
                     SweepItem::Package(pkg) => {
                         println!("📦 Removing package: {}", pkg.name);
-                        pkg.remove(false)?;
+                        pkg.remove(false, &self.config.su_command)?;
                     }
                     SweepItem::HomeArtifact(art) => {
                         println!("🏠 Removing: {}", art.path.display());

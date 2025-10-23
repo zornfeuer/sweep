@@ -8,6 +8,9 @@ pub struct Config {
     #[serde(default)]
     pub os: Option<OS>,
 
+    #[serde(default = "default_su")]
+    pub su_command: String,
+
     #[serde(default)]
     pub theme: Theme,
 
@@ -78,13 +81,24 @@ impl<'de> Deserialize<'de> for Keybindings {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
+        #[derive(Default, Deserialize)]
         struct Helper {
+            #[serde(default = "default_quit")]
             quit: Vec<String>,
+
+            #[serde(default = "default_select")]
             select: Vec<String>,
+
+            #[serde(default = "default_confirm")]
             confirm: Vec<String>,
+
+            #[serde(default = "default_select_all")]
             select_all: Vec<String>,
+
+            #[serde(default = "default_up")]
             cursor_up: Vec<String>,
+
+            #[serde(default = "default_down")]
             cursor_down: Vec<String>,
         }
 
@@ -93,7 +107,7 @@ impl<'de> Deserialize<'de> for Keybindings {
         let parse_vec = |v: Vec<String>, field_name: &str| {
             v.into_iter()
                 .map(|s| {
-                    Keybindings::parse_keycode_str(&s).map_err(|e| {
+                    parse_keycode_str(&s).map_err(|e| {
                         serde::de::Error::custom(format!("In keybindings.{}: {}", field_name, e))
                     })
                 })
@@ -111,28 +125,6 @@ impl<'de> Deserialize<'de> for Keybindings {
     }
 }
 
-impl Keybindings {
-    fn parse_keycode_str(s: &str) -> Result<KeyCode, String> {
-        let s = s.trim().to_lowercase();
-
-        match s.as_str() {
-            "esc" | "escape" => Ok(KeyCode::Esc),
-            "enter" | "return" => Ok(KeyCode::Enter),
-            "space" => Ok(KeyCode::Char(' ')),
-            "up" => Ok(KeyCode::Up),
-            "down" => Ok(KeyCode::Down),
-            "left" => Ok(KeyCode::Left),
-            "right" => Ok(KeyCode::Right),
-            "tab" => Ok(KeyCode::Tab),
-            "backspace" | "bs" => Ok(KeyCode::Backspace),
-            c if c.len() == 1 && c.chars().next().unwrap().is_ascii_alphanumeric() => {
-                Ok(KeyCode::Char(c.chars().next().unwrap().to_ascii_uppercase()))
-            },
-            _ => Err(format!("Unknown key: {}", s)),
-        }
-    }
-}
-
 impl Default for Keybindings {
     fn default() -> Self {
         Self {
@@ -143,6 +135,26 @@ impl Default for Keybindings {
             cursor_up: vec![KeyCode::Up, KeyCode::Char('k')],
             cursor_down: vec![KeyCode::Down, KeyCode::Char('j')],
         }
+    }
+}
+
+fn parse_keycode_str(s: &str) -> Result<KeyCode, String> {
+    let s = s.trim().to_lowercase();
+
+    match s.as_str() {
+        "esc" | "escape" => Ok(KeyCode::Esc),
+        "enter" | "return" => Ok(KeyCode::Enter),
+        "space" => Ok(KeyCode::Char(' ')),
+        "up" => Ok(KeyCode::Up),
+        "down" => Ok(KeyCode::Down),
+        "left" => Ok(KeyCode::Left),
+        "right" => Ok(KeyCode::Right),
+        "tab" => Ok(KeyCode::Tab),
+        "backspace" | "bs" => Ok(KeyCode::Backspace),
+        c if c.len() == 1 && c.chars().next().unwrap().is_ascii_alphanumeric() => {
+            Ok(KeyCode::Char(c.chars().next().unwrap().to_ascii_lowercase()))
+        },
+        _ => Err(format!("Unknown key: {}", s)),
     }
 }
 
@@ -186,10 +198,12 @@ fn parse_color(s: &str) -> Result<Color, String> {
     Err(format!("unknown color: {}", s))
 }
 
-fn default_package_icon() -> String {
-    "📦".to_string()
-}
-
-fn default_artifact_icon() -> String {
-    "🧩".to_string()
-}
+fn default_quit() -> Vec<String> { vec!["q".to_string(), "escape".to_string()] }
+fn default_select() -> Vec<String> { vec!["space".to_string()] }
+fn default_confirm() -> Vec<String> { vec!["enter".to_string()] }
+fn default_select_all() -> Vec<String> { vec!["a".to_string()] }
+fn default_up() -> Vec<String> { vec!["up".to_string(), "k".to_string()] }
+fn default_down() -> Vec<String> { vec!["down".to_string(), "j".to_string()] }
+fn default_su() -> String { "sudo".to_string() }
+fn default_package_icon() -> String { "📦".to_string() }
+fn default_artifact_icon() -> String { "🧩".to_string() }

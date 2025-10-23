@@ -51,14 +51,14 @@ impl<'de> Deserialize<'de> for OS {
 }
 
 impl Package {
-    pub fn remove(&self, dry_run: bool) -> anyhow::Result<()> {
+    pub fn remove(&self, dry_run: bool, su_command: &str) -> anyhow::Result<()> {
         match self.system {
             PackageSystem::Xbps => {
                 if dry_run {
-                    println!("  [DRY] xbps-remove -Ry {}", self.name)
+                    println!("  [DRY] xbps-remove -y {}", self.name)
                 } else {
-                    let status = Command::new("xbps-remove")
-                        .args(["-Ry", &self.name])
+                    let status = Command::new(su_command)
+                        .args(["xbps-remove", "-y", &self.name])
                         .status()?;
                     if !status.success() {
                         anyhow::bail!("Failed to remove package: {}", self.name);
@@ -69,7 +69,7 @@ impl Package {
                 if dry_run {
                     println!("  [DRY] apt purge -y {}", self.name);
                 } else {
-                    let status = Command::new("doas")
+                    let status = Command::new(su_command)
                         .args(["apt", "purge", "-y", &self.name])
                         .status()?;
 
